@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoveSmart - Mobilidade Urbana Inteligente</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-bg: #0a0f1a;
+      --surface-color: #141c2e;
+      --text-color: #e8edf5;
+      --primary-action: #00d4aa;
+      --secondary-action: #3b82f6;
+    }
+    
+    * { box-sizing: border-box; }
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow-x: hidden;
+    }
+    
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--primary-bg);
+      color: var(--text-color);
+    }
+    
+    .app-wrapper {
+      width: 100%;
+      min-height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: linear-gradient(135deg, #0a0f1a 0%, #0d1525 50%, #111827 100%);
+    }
+    
+    .glow-text {
+      text-shadow: 0 0 40px rgba(0, 212, 170, 0.5), 0 0 80px rgba(0, 212, 170, 0.3);
+    }
+    
+    .card-glow {
+      box-shadow: 0 0 40px rgba(0, 212, 170, 0.1), 0 4px 20px rgba(0, 0, 0, 0.4);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .card-glow:hover {
+      box-shadow: 0 0 60px rgba(0, 212, 170, 0.2), 0 8px 30px rgba(0, 0, 0, 0.5);
+      transform: translateY(-4px);
+    }
+    
+    .map-wrapper {
+      position: relative;
+      width: 100%;
+      height: 700px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: linear-gradient(145deg, #1a2744 0%, #0f172a 100%);
+      border: 2px solid rgba(0, 212, 170, 0.3);
+    }
+    
+    .map-container {
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      cursor: grab;
+      transition: transform 0.3s ease-out;
+      left: -25%;
+      top: -25%;
+    }
+    
+    .map-container.dragging {
+      cursor: grabbing;
+    }
+    
+    .grid-lines {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(0, 212, 170, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 170, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    
+    .road {
+      position: absolute;
+      background: linear-gradient(90deg, #2d3a50 0%, #374357 50%, #2d3a50 100%);
+      border-radius: 4px;
+    }
+    
+    .road-h { height: 20px; }
+    .road-v { width: 20px; }
+    
+    .road-marking {
+      position: absolute;
+      background: #fbbf24;
+      opacity: 0.7;
+    }
+    
+    .marker {
+      position: absolute;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 10;
+    }
+    
+    .marker:hover {
+      transform: scale(1.2);
+      z-index: 20;
+    }
+    
+    .marker-bus {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+      animation: pulse-bus 2s infinite;
+      position: relative;
+    }
+    
+    .marker-bus.accessible::after {
+      content: '♿';
+      position: absolute;
+      font-size: 12px;
+      top: -8px;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      background: #10b981;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #0a0f1a;
+    }
+    
+    .marker-health {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+    }
+    
+    .marker-blocked {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+      animation: blink 1.5s infinite;
+    }
+    
+    .vehicle {
+      position: absolute;
+      width: 24px;
+      height: 14px;
+      background: linear-gradient(90deg, #00d4aa 0%, #059669 100%);
+      border-radius: 4px;
+      box-shadow: 0 0 15px rgba(0, 212, 170, 0.6);
+      z-index: 5;
+    }
+    
+    .vehicle::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      width: 8px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+    }
+    
+    .tooltip {
+      position: fixed;
+      background: rgba(20, 28, 46, 0.98);
+      border: 1px solid rgba(0, 212, 170, 0.4);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 13px;
+      white-space: nowrap;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    
+    .tooltip.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .zoom-controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 50;
+    }
+    
+    .zoom-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #00d4aa 0%, #059669 100%);
+      border: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3);
+    }
+    
+    .zoom-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(0, 212, 170, 0.5);
+    }
+    
+    .zoom-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .zoom-display {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(20, 28, 46, 0.9);
+      border: 1px solid rgba(0, 212, 170, 0.3);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #00d4aa;
+      z-index: 50;
+    }
+    
+    @keyframes pulse-bus {
+      0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+      50% { box-shadow: 0 0 35px rgba(59, 130, 246, 0.8); }
+    }
+    
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    @keyframes moveVehicle1 {
+      0% { left: 5%; }
+      100% { left: 85%; }
+    }
+    
+    @keyframes moveVehicle2 {
+      0% { top: 80%; }
+      100% { top: 10%; }
+    }
+    
+    @keyframes moveVehicle3 {
+      0% { left: 90%; }
+      100% { left: 10%; }
+    }
+    
+    @keyframes moveVehicle4 {
+      0% { left: 20%; }
+      100% { left: 60%; }
+    }
+    
+    @keyframes moveVehicle5 {
+      0% { top: 20%; }
+      100% { top: 70%; }
+    }
+    
+    .vehicle-1 { animation: moveVehicle1 8s linear infinite; }
+    .vehicle-2 { animation: moveVehicle2 10s linear infinite; }
+    .vehicle-3 { animation: moveVehicle3 12s linear infinite; }
+    .vehicle-4 { animation: moveVehicle4 9s linear infinite; }
+    .vehicle-5 { animation: moveVehicle5 11s linear infinite; }
+    
+    .benefit-card {
+      background: linear-gradient(145deg, rgba(20, 28, 46, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+      border: 1px solid rgba(0, 212, 170, 0.2);
+      border-radius: 16px;
+      padding: 24px;
+      transition: all 0.4s ease;
+    }
+    
+    .benefit-card:hover {
+      border-color: rgba(0, 212, 170, 0.5);
+      background: linear-gradient(145deg, rgba(20, 28, 46, 0.95) 0%, rgba(15, 23, 42, 1) 100%);
+    }
+    
+    .stat-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4aa 0%, #3b82f6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(0, 212, 170, 0.3) 50%, transparent 100%);
+      margin: 60px 0;
+    }
+    
+    .nav-link {
+      position: relative;
+      padding: 8px 16px;
+      transition: all 0.3s ease;
+    }
+    
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background: #00d4aa;
+      transition: all 0.3s ease;
+      transform: translateX(-50%);
+    }
+    
+    .nav-link:hover::after {
+      width: 80%;
+    }
+    
+    .quote-section {
+      background: linear-gradient(135deg, rgba(0, 212, 170, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+      border-left: 4px solid #00d4aa;
+      border-radius: 0 16px 16px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .stat-number { font-size: 2rem; }
+      .map-wrapper { height: 400px !important; }
+    }
+  </style>
+</head>
+<body class="h-full">
+  <div class="app-wrapper">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-opacity-80" style="background: rgba(10, 15, 26, 0.9);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16 sm:h-20">
+          <!-- Logo -->
+          <div class="flex items-center gap-3">
+            <div id="logo-container" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%);">
+              <img id="custom-logo" src="" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; padding: 2px; display: none;" loading="lazy" onerror="console.error('Logo failed to load:', this.src); this.style.display='none'; document.querySelector('#logo-fallback').style.display='flex';"/>
+              <div id="logo-fallback" class="w-full h-full flex items-center justify-center">
+                <svg class="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                </svg>
+              </div>
+            </div>
+            <div>
+              <span id="logo-text" class="text-xl sm:text-2xl font-bold" style="color: #00d4aa;">MoveSmart</span>
+              <span class="hidden sm:block text-xs text-gray-400">Mobilidade Inteligente</span>
+            </div>
+          </div>
+          
+          <!-- Desktop Navigation -->
+          <div class="hidden md:flex items-center gap-2">
+            <a href="#mapa" class="nav-link text-gray-300 hover:text-white">Mapa</a>
+            <a href="#quem-somos" class="nav-link text-gray-300 hover:text-white">Quem Somos</a>
+            <a href="#objetivo" class="nav-link text-gray-300 hover:text-white">Objetivo</a>
+            <a href="#beneficios" class="nav-link text-gray-300 hover:text-white">Benefícios</a>
+          </div>
+          
+          <!-- CTA Button -->
+          <button class="px-4 py-2 sm:px-6 sm:py-2.5 rounded-full font-semibold text-sm sm:text-base transition-all duration-300 hover:scale-105" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%); color: #0a0f1a;">
+            Explorar
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-28 sm:pt-32 pb-16 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto text-center">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 sm:mb-8" style="background: rgba(0, 212, 170, 0.15); border: 1px solid rgba(0, 212, 170, 0.3);">
+          <span class="w-2 h-2 rounded-full animate-pulse" style="background: #00d4aa;"></span>
+          <span class="text-sm" style="color: #00d4aa;">Sistema Ativo • Monitoramento em Tempo Real</span>
+        </div>
+        
+        <h1 id="hero-title" class="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-4 sm:mb-6 glow-text" style="color: #00d4aa; font-family: 'Space Grotesk', sans-serif;">
+          MoveSmart
+        </h1>
+        <p id="hero-subtitle" class="text-xl sm:text-2xl md:text-3xl font-light text-gray-300 mb-4">
+          Mobilidade Urbana Inteligente
+        </p>
+        <p class="text-base sm:text-lg text-gray-400 max-w-3xl mx-auto mb-8 sm:mb-12 px-4">
+          Transformando cidades através da tecnologia. Monitoramento inteligente, dados em tempo real e soluções inovadoras para uma mobilidade mais eficiente e acessível.
+        </p>
+        
+        <!-- Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 max-w-4xl mx-auto">
+          <div class="p-4 sm:p-6 rounded-2xl card-glow" style="background: linear-gradient(145deg, rgba(20, 28, 46, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);">
+            <div class="stat-number">24</div>
+            <div class="text-gray-400 text-sm">Pontos de Ônibus</div>
+          </div>
+          <div class="p-4 sm:p-6 rounded-2xl card-glow" style="background: linear-gradient(145deg, rgba(20, 28, 46, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);">
+            <div class="stat-number">8</div>
+            <div class="text-gray-400 text-sm">Postos de Saúde</div>
+          </div>
+          <div class="p-4 sm:p-6 rounded-2xl card-glow" style="background: linear-gradient(145deg, rgba(20, 28, 46, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);">
+            <div class="stat-number">150+</div>
+            <div class="text-gray-400 text-sm">Veículos Monitorados</div>
+          </div>
+          <div class="p-4 sm:p-6 rounded-2xl card-glow" style="background: linear-gradient(145deg, rgba(20, 28, 46, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);">
+            <div class="stat-number">99%</div>
+            <div class="text-gray-400 text-sm">Uptime do Sistema</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider max-w-6xl mx-auto"></div>
+
+    <!-- Interactive Map Section -->
+    <section id="mapa" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-8 sm:mb-12">
+          <h2 class="text-3xl sm:text-4xl font-bold mb-4" style="color: #00d4aa;">Mapa Interativo</h2>
+          <p class="text-gray-400 max-w-2xl mx-auto">Explore nossa cidade fictícia com zoom! Use o scroll do mouse ou os botões para ampliar/reduzir. Arraste para navegar.</p>
+        </div>
+        
+        <!-- Legend -->
+        <div class="flex flex-wrap justify-center gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Ponto de Ônibus</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Posto de Saúde</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Via Obstruída</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-4 rounded flex items-center justify-center" style="background: linear-gradient(90deg, #00d4aa 0%, #059669 100%); box-shadow: 0 0 15px rgba(0, 212, 170, 0.6);">
+              <svg class="w-4 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-3-7c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3 3 1.34 3 3z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Veículo em Circulação</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <span class="text-sm text-gray-300">Ônibus com Acessibilidade</span>
+          </div>
+        </div>
+        
+        <!-- Map -->
+        <div class="map-wrapper" id="map-wrapper">
+          <div class="zoom-display" id="zoom-display">Zoom: 100%</div>
+          
+          <div class="map-container" id="map-container">
+            <div class="grid-lines"></div>
+            
+            <!-- Roads - Horizontal -->
+            <div class="road road-h" style="top: 15%; left: 0; width: 100%;"></div>
+            <div class="road road-h" style="top: 30%; left: 0; width: 100%;"></div>
+            <div class="road road-h" style="top: 50%; left: 0; width: 100%;"></div>
+            <div class="road road-h" style="top: 70%; left: 0; width: 100%;"></div>
+            <div class="road road-h" style="top: 85%; left: 0; width: 100%;"></div>
+            
+            <!-- Roads - Vertical -->
+            <div class="road road-v" style="left: 15%; top: 0; height: 100%;"></div>
+            <div class="road road-v" style="left: 30%; top: 0; height: 100%;"></div>
+            <div class="road road-v" style="left: 50%; top: 0; height: 100%;"></div>
+            <div class="road road-v" style="left: 70%; top: 0; height: 100%;"></div>
+            <div class="road road-v" style="left: 85%; top: 0; height: 100%;"></div>
+            
+            <!-- Road Markings -->
+            <div class="road-marking" style="top: 15%; left: 20%; width: 30px; height: 3px;"></div>
+            <div class="road-marking" style="top: 30%; left: 40%; width: 30px; height: 3px;"></div>
+            <div class="road-marking" style="top: 50%; left: 25%; width: 30px; height: 3px;"></div>
+            <div class="road-marking" style="top: 70%; left: 60%; width: 30px; height: 3px;"></div>
+            <div class="road-marking" style="top: 85%; left: 35%; width: 30px; height: 3px;"></div>
+            
+            <!-- Bus Stops -->
+            <div class="marker" style="top: 12%; left: 15%;" data-type="bus" data-name="Terminal Centro" data-lines="101, 205, 307" data-next="5 min" data-accessible="sim">
+              <div class="marker-bus accessible">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 28%; left: 50%;" data-type="bus" data-name="Praça Central" data-lines="102, 208, 415" data-next="3 min" data-accessible="sim">
+              <div class="marker-bus accessible">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 68%; left: 85%;" data-type="bus" data-name="Estação Sul" data-lines="301, 405" data-next="8 min" data-accessible="não">
+              <div class="marker-bus">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 12%; left: 85%;" data-type="bus" data-name="Terminal Norte" data-lines="501, 602" data-next="2 min" data-accessible="sim">
+              <div class="marker-bus accessible">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 48%; left: 30%;" data-type="bus" data-name="Terminal Leste" data-lines="210, 312, 520" data-next="6 min" data-accessible="sim">
+              <div class="marker-bus accessible">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 82%; left: 50%;" data-type="bus" data-name="Estação Oeste" data-lines="150, 250" data-next="7 min" data-accessible="não">
+              <div class="marker-bus">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Health Posts -->
+            <div class="marker" style="top: 32%; left: 25%;" data-type="health" data-name="UBS Centro" data-hours="7h - 19h" data-services="Clínica Geral, Pediatria">
+              <div class="marker-health">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 55%; left: 70%;" data-type="health" data-name="UPA Leste" data-hours="24 horas" data-services="Urgência, Emergência">
+              <div class="marker-health">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 72%; left: 15%;" data-type="health" data-name="Clinica Oeste" data-hours="8h - 18h" data-services="Ortopedia, Fisioterapia">
+              <div class="marker-health">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 25%; left: 60%;" data-type="health" data-name="Hospital Central" data-hours="24 horas" data-services="Cirurgias, Internação">
+              <div class="marker-health">
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6v-4h4V6h4v4h4v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Blocked Routes -->
+            <div class="marker" style="top: 45%; left: 42%;" data-type="blocked" data-name="Obra na Via" data-reason="Manutenção de pavimento" data-until="25/02/2026">
+              <div class="marker-blocked">
+                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 65%; left: 60%;" data-type="blocked" data-name="Acidente" data-reason="Colisão entre veículos" data-until="Liberação em breve">
+              <div class="marker-blocked">
+                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="marker" style="top: 20%; left: 40%;" data-type="blocked" data-name="Congestionamento" data-reason="Semáforo com defeito" data-until="Previsão: 30 min">
+              <div class="marker-blocked">
+                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <!-- Moving Vehicles -->
+            <div class="vehicle vehicle-1" style="top: calc(15% - 7px);"></div>
+            <div class="vehicle vehicle-2" style="left: calc(50% - 7px); transform: rotate(90deg);"></div>
+            <div class="vehicle vehicle-3" style="top: calc(70% - 7px); transform: rotate(180deg);"></div>
+            <div class="vehicle vehicle-4" style="top: calc(50% - 7px);"></div>
+            <div class="vehicle vehicle-5" style="left: calc(30% - 7px); transform: rotate(90deg);"></div>
+          </div>
+          
+          <!-- Zoom Controls -->
+          <div class="zoom-controls">
+            <button class="zoom-btn" id="zoom-in" title="Ampliar">+</button>
+            <button class="zoom-btn" id="zoom-out" title="Reduzir">−</button>
+            <button class="zoom-btn" id="zoom-reset" title="Resetar" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">🔄</button>
+          </div>
+          
+          <!-- Tooltip -->
+          <div class="tooltip" id="map-tooltip"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider max-w-6xl mx-auto"></div>
+
+    <!-- Quem Somos Section -->
+    <section id="quem-somos" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid md:grid-cols-2 gap-8 sm:gap-12 items-center">
+          <div>
+            <h2 class="text-3xl sm:text-4xl font-bold mb-6" style="color: #00d4aa;">Quem Somos</h2>
+            <p class="text-gray-300 text-lg mb-6 leading-relaxed">
+              A <strong style="color: #00d4aa;">MoveSmart</strong> é uma iniciativa inovadora voltada à transformação da mobilidade urbana. Nossa equipe é composta por profissionais apaixonados por tecnologia e comprometidos com a criação de soluções que tornem as cidades mais inteligentes, eficientes e acessíveis.
+            </p>
+            <p class="text-gray-400 leading-relaxed mb-8">
+              Acreditamos que a tecnologia pode ser uma poderosa aliada no enfrentamento dos desafios urbanos. Por isso, desenvolvemos sistemas que integram dados em tempo real, monitoramento inteligente e análise preditiva para melhorar a qualidade de vida nas cidades.
+            </p>
+            
+            <div class="flex flex-wrap gap-4">
+              <div class="px-4 py-2 rounded-full text-sm" style="background: rgba(0, 212, 170, 0.15); color: #00d4aa; border: 1px solid rgba(0, 212, 170, 0.3);">
+                🚀 Inovação
+              </div>
+              <div class="px-4 py-2 rounded-full text-sm" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3);">
+                🎯 Tecnologia
+              </div>
+              <div class="px-4 py-2 rounded-full text-sm" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3);">
+                ♿ Acessibilidade
+              </div>
+            </div>
+          </div>
+          
+          <div class="relative">
+            <div class="absolute inset-0 rounded-3xl" style="background: linear-gradient(135deg, rgba(0, 212, 170, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%); filter: blur(40px);"></div>
+            <div class="relative p-8 sm:p-10 rounded-3xl card-glow" style="background: linear-gradient(145deg, rgba(20, 28, 46, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(0, 212, 170, 0.2);">
+              <div class="flex items-center justify-center mb-6">
+                <div class="w-20 h-20 rounded-2xl flex items-center justify-center" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%);">
+                  <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                  </svg>
+                </div>
+              </div>
+              <h3 class="text-2xl font-bold text-center mb-4" style="color: #00d4aa;">Nossa Missão</h3>
+              <p class="text-gray-300 text-center">
+                Democratizar o acesso à informação urbana e criar ferramentas que empoderem cidadãos e gestores na construção de cidades mais justas e sustentáveis.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider max-w-6xl mx-auto"></div>
+
+    <!-- Objetivo Section -->
+    <section id="objetivo" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl sm:text-4xl font-bold mb-4" style="color: #00d4aa;">Nosso Objetivo</h2>
+          <p class="text-gray-400 max-w-3xl mx-auto text-lg">
+            Desenvolver um ecossistema tecnológico integrado que revolucione a forma como as cidades gerenciam sua mobilidade urbana.
+          </p>
+        </div>
+        
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="benefit-card text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(0, 212, 170, 0.2) 0%, rgba(0, 212, 170, 0.1) 100%); border: 1px solid rgba(0, 212, 170, 0.3);">
+              <svg class="w-7 h-7" style="color: #00d4aa;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold mb-2 text-white">Monitorar Transporte</h3>
+            <p class="text-gray-400 text-sm">Acompanhamento em tempo real de veículos e rotas do transporte público.</p>
+          </div>
+          
+          <div class="benefit-card text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%); border: 1px solid rgba(59, 130, 246, 0.3);">
+              <svg class="w-7 h-7" style="color: #3b82f6;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold mb-2 text-white">Identificar Problemas</h3>
+            <p class="text-gray-400 text-sm">Detecção automática de vias obstruídas, acidentes e irregularidades.</p>
+          </div>
+          
+          <div class="benefit-card text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(168, 85, 247, 0.1) 100%); border: 1px solid rgba(168, 85, 247, 0.3);">
+              <svg class="w-7 h-7" style="color: #a855f7;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold mb-2 text-white">Auxiliar Planejamento</h3>
+            <p class="text-gray-400 text-sm">Dados analíticos para tomada de decisão estratégica pelos gestores.</p>
+          </div>
+          
+          <div class="benefit-card text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%); border: 1px solid rgba(245, 158, 11, 0.3);">
+              <svg class="w-7 h-7" style="color: #f59e0b;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold mb-2 text-white">Informar Cidadãos</h3>
+            <p class="text-gray-400 text-sm">Interface acessível com informações úteis para a população.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider max-w-6xl mx-auto"></div>
+
+    <!-- Benefícios Section -->
+    <section id="beneficios" class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl sm:text-4xl font-bold mb-4" style="color: #00d4aa;">Benefícios e Impactos</h2>
+          <p class="text-gray-400 max-w-3xl mx-auto">
+            Nossa solução gera impactos positivos em múltiplas dimensões da vida urbana.
+          </p>
+        </div>
+        
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="benefit-card group">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">Redução de Atrasos</h3>
+                <p class="text-gray-400 text-sm">Informações em tempo real sobre horários e condições do transporte.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="benefit-card group">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">Organização de Rotas</h3>
+                <p class="text-gray-400 text-sm">Otimização inteligente dos trajetos para maior eficiência.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="benefit-card group">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">Vias Obstruídas</h3>
+                <p class="text-gray-400 text-sm">Identificação e alerta sobre bloqueios e interdições.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="benefit-card group">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">Acessibilidade</h3>
+                <p class="text-gray-400 text-sm">Interface inclusiva e informações sobre acessibilidade.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="benefit-card group">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">Serviços Essenciais</h3>
+                <p class="text-gray-400 text-sm">Localização facilitada de postos de saúde e serviços públicos.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="benefit-card group">
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-110" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold mb-2 text-white">Dados para Planejamento</h3>
+                <p class="text-gray-400 text-sm">Analytics e insights para gestores urbanos tomarem decisões.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider max-w-6xl mx-auto"></div>
+
+    <!-- Quote Section -->
+    <section class="py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-4xl mx-auto">
+        <div class="quote-section p-8 sm:p-12">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%);">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
+              </svg>
+            </div>
+            <div>
+              <span class="text-sm font-medium" style="color: #00d4aa;">Mensagem da Equipe</span>
+            </div>
+          </div>
+          <blockquote id="quote-text" class="text-xl sm:text-2xl font-light text-white leading-relaxed mb-6" style="font-family: 'Space Grotesk', sans-serif;">
+            "Grandes soluções surgem quando uma equipe acredita, colabora e evolui junta."
+          </blockquote>
+          <div class="flex items-center gap-3">
+            <div class="flex -space-x-2">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%); color: #0a0f1a;">M</div>
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white;">S</div>
+            </div>
+            <span class="text-gray-400 text-sm">— Equipe MoveSmart</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-4 sm:px-6 lg:px-8" style="background: rgba(10, 15, 26, 0.95); border-top: 1px solid rgba(0, 212, 170, 0.1);">
+      <div class="max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #00d4aa 0%, #059669 100%);">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+              </svg>
+            </div>
+            <span class="text-xl font-bold" style="color: #00d4aa;">MoveSmart</span>
+          </div>
+          
+          <div class="flex items-center gap-6">
+            <a href="#mapa" class="text-gray-400 hover:text-white transition-colors">Mapa</a>
+            <a href="#quem-somos" class="text-gray-400 hover:text-white transition-colors">Quem Somos</a>
+            <a href="#objetivo" class="text-gray-400 hover:text-white transition-colors">Objetivo</a>
+            <a href="#beneficios" class="text-gray-400 hover:text-white transition-colors">Benefícios</a>
+          </div>
+          
+          <div class="text-gray-500 text-sm">
+            © 2025 MoveSmart. Todos os direitos reservados.
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const defaultConfig = {
+      hero_title: 'MoveSmart',
+      hero_subtitle: 'Mobilidade Urbana Inteligente',
+      quote_text: '"Grandes soluções surgem quando uma equipe acredita, colabora e evolui junta."',
+      logo_url: '',
+      primary_color: '#00d4aa',
+      surface_color: '#141c2e',
+      text_color: '#e8edf5',
+      primary_action: '#00d4aa',
+      secondary_action: '#3b82f6',
+      font_family: 'Outfit',
+      font_size: 16
+    };
+
+    let currentZoom = 100;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    async function onConfigChange(config) {
+      const heroTitle = document.getElementById('hero-title');
+      const heroSubtitle = document.getElementById('hero-subtitle');
+      const quoteText = document.getElementById('quote-text');
+      const logoText = document.getElementById('logo-text');
+      const customLogoImg = document.getElementById('custom-logo');
+      const logoFallback = document.getElementById('logo-fallback');
+
+      if (heroTitle) heroTitle.textContent = config.hero_title || defaultConfig.hero_title;
+      if (heroSubtitle) heroSubtitle.textContent = config.hero_subtitle || defaultConfig.hero_subtitle;
+      if (quoteText) quoteText.textContent = config.quote_text || defaultConfig.quote_text;
+      if (logoText) logoText.textContent = config.hero_title || defaultConfig.hero_title;
+
+      if (config.logo_url && config.logo_url.trim() !== '') {
+        customLogoImg.src = config.logo_url;
+        customLogoImg.style.display = 'block';
+        logoFallback.style.display = 'none';
+      } else {
+        customLogoImg.style.display = 'none';
+        logoFallback.style.display = 'flex';
+      }
+
+      const customFont = config.font_family || defaultConfig.font_family;
+      const baseFontStack = 'sans-serif';
+      document.body.style.fontFamily = `${customFont}, ${baseFontStack}`;
+
+      const baseSize = config.font_size || defaultConfig.font_size;
+      document.documentElement.style.fontSize = `${baseSize}px`;
+
+      document.documentElement.style.setProperty('--primary-color', config.primary_color || defaultConfig.primary_color);
+      document.documentElement.style.setProperty('--surface-color', config.surface_color || defaultConfig.surface_color);
+      document.documentElement.style.setProperty('--text-color', config.text_color || defaultConfig.text_color);
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.primary_color || defaultConfig.primary_color,
+            set: (value) => {
+              config.primary_color = value;
+              window.elementSdk.setConfig({ primary_color: value });
+            }
+          },
+          {
+            get: () => config.surface_color || defaultConfig.surface_color,
+            set: (value) => {
+              config.surface_color = value;
+              window.elementSdk.setConfig({ surface_color: value });
+            }
+          },
+          {
+            get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => {
+              config.text_color = value;
+              window.elementSdk.setConfig({ text_color: value });
+            }
+          },
+          {
+            get: () => config.primary_action || defaultConfig.primary_action,
+            set: (value) => {
+              config.primary_action = value;
+              window.elementSdk.setConfig({ primary_action: value });
+            }
+          },
+          {
+            get: () => config.secondary_action || defaultConfig.secondary_action,
+            set: (value) => {
+              config.secondary_action = value;
+              window.elementSdk.setConfig({ secondary_action: value });
+            }
+          }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => {
+            config.font_family = value;
+            window.elementSdk.setConfig({ font_family: value });
+          }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => {
+            config.font_size = value;
+            window.elementSdk.setConfig({ font_size: value });
+          }
+        }
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['hero_title', config.hero_title || defaultConfig.hero_title],
+        ['hero_subtitle', config.hero_subtitle || defaultConfig.hero_subtitle],
+        ['quote_text', config.quote_text || defaultConfig.quote_text],
+        ['logo_url', config.logo_url || defaultConfig.logo_url]
+      ]);
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+
+    // Map Zoom and Pan Functionality
+    const mapContainer = document.getElementById('map-container');
+    const mapWrapper = document.getElementById('map-wrapper');
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+    const zoomDisplay = document.getElementById('zoom-display');
+
+    function updateMapTransform() {
+      mapContainer.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${currentZoom / 100})`;
+      zoomDisplay.textContent = `Zoom: ${currentZoom}%`;
+    }
+
+    zoomInBtn.addEventListener('click', () => {
+      if (currentZoom < 300) {
+        currentZoom += 25;
+        updateMapTransform();
+      }
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+      if (currentZoom > 50) {
+        currentZoom -= 25;
+        updateMapTransform();
+      }
+    });
+
+    zoomResetBtn.addEventListener('click', () => {
+      currentZoom = 100;
+      offsetX = 0;
+      offsetY = 0;
+      updateMapTransform();
+    });
+
+    mapWrapper.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -1 : 1;
+      const newZoom = currentZoom + delta * 25;
+      
+      if (newZoom >= 50 && newZoom <= 300) {
+        currentZoom = newZoom;
+        updateMapTransform();
+      }
+    }, { passive: false });
+
+    mapContainer.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragStartX = e.clientX - offsetX;
+      dragStartY = e.clientY - offsetY;
+      mapContainer.classList.add('dragging');
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        offsetX = e.clientX - dragStartX;
+        offsetY = e.clientY - dragStartY;
+        updateMapTransform();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+      mapContainer.classList.remove('dragging');
+    });
+
+    // Interactive Map Markers
+    const tooltip = document.getElementById('map-tooltip');
+    const markers = document.querySelectorAll('.marker');
+
+    markers.forEach(marker => {
+      marker.addEventListener('mouseenter', (e) => {
+        const type = marker.dataset.type;
+        const name = marker.dataset.name;
+        let content = '';
+
+        if (type === 'bus') {
+          const accessible = marker.dataset.accessible === 'sim' ? '✅ Sim' : '❌ Não';
+          content = `
+            <div class="font-semibold text-white mb-1">🚌 ${name}</div>
+            <div class="text-gray-300">Linhas: ${marker.dataset.lines}</div>
+            <div class="text-gray-300">Próximo: ${marker.dataset.next}</div>
+            <div style="color: #10b981;">Acessível: ${accessible}</div>
+          `;
+        } else if (type === 'health') {
+          content = `
+            <div class="font-semibold text-white mb-1">🏥 ${name}</div>
+            <div class="text-gray-300">Horário: ${marker.dataset.hours}</div>
+            <div style="color: #00d4aa;">Serviços: ${marker.dataset.services}</div>
+          `;
+        } else if (type === 'blocked') {
+          content = `
+            <div class="font-semibold text-white mb-1">⚠️ ${name}</div>
+            <div class="text-gray-300">Motivo: ${marker.dataset.reason}</div>
+            <div style="color: #f59e0b;">Previsão: ${marker.dataset.until}</div>
+          `;
+        }
+
+        tooltip.innerHTML = content;
+        
+        const markerRect = marker.getBoundingClientRect();
+        const wrapperRect = mapWrapper.getBoundingClientRect();
+        
+        tooltip.style.left = `${markerRect.left - wrapperRect.left + 40}px`;
+        tooltip.style.top = `${markerRect.top - wrapperRect.top - 10}px`;
+        tooltip.classList.add('active');
+      });
+
+      marker.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('active');
+      });
+    });
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cf8426c22cbf61f',t:'MTc3MTM2MjUwMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
